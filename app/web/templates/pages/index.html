@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+
+{% block title %}Главная - Tracer Dashboard{% endblock %}
+
+{% block content %}
+<h1 style="margin-bottom: 1.5rem;">Tracer Dashboard</h1>
+
+<div class="stats">
+    <div class="stat-card">
+        <div class="stat-value">{{ sites|length }}</div>
+        <div class="stat-label">Участков</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ recent_events|length }}</div>
+        <div class="stat-label">Последних проб</div>
+    </div>
+</div>
+
+<div class="grid grid-2">
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">Последние участки</h2>
+            <a href="/sites" class="btn btn-sm btn-secondary">Все участки</a>
+        </div>
+        {% if sites %}
+        <ul style="list-style: none;">
+            {% for site in sites %}
+            <li style="padding: 0.75rem 0; border-bottom: 1px solid var(--border);">
+                <a href="/sites/{{ site.id }}" style="text-decoration: none; color: var(--text);">
+                    <strong>{{ site.name }}</strong>
+                    <br>
+                    <small style="color: var(--text-muted);">
+                        Нагн. скважина: {{ site.inj_well_name }}
+                        | Скважин: {{ site.wells|length if site.wells else 0 }}
+                    </small>
+                </a>
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <div class="empty-state">
+            <div class="empty-state-icon">📍</div>
+            <p>Участки пока не созданы</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">Последние пробы</h2>
+            <a href="/samples" class="btn btn-sm btn-secondary">Все пробы</a>
+        </div>
+        {% if recent_events %}
+        <div class="timeline">
+            {% for event in recent_events[:5] %}
+            <div class="timeline-item">
+                <div class="timeline-time">{{ event.created_at|datetime }}</div>
+                <div class="timeline-content">
+                    <strong>{{ event.site.name if event.site else '?' }}</strong> /
+                    {{ event.well.name if event.well else '?' }}
+                    <br>
+                    <span class="badge {% if event.well_status.value == 'working' %}badge-success{% elif event.well_status.value == 'repair' %}badge-warning{% else %}badge-danger{% endif %}">
+                        {% if event.well_status.value == 'working' %}Работает
+                        {% elif event.well_status.value == 'repair' %}Ремонт
+                        {% elif event.well_status.value == 'not_working' %}Не работает
+                        {% else %}КРС{% endif %}
+                    </span>
+                    <span class="badge badge-info">{{ event.volume_liters }} л</span>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <div class="empty-state-icon">🧪</div>
+            <p>Пробы пока не отобраны</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

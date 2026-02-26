@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+
+{% block title %}Пробы - Tracer Dashboard{% endblock %}
+
+{% block content %}
+<h1 style="margin-bottom: 1.5rem;">Пробы</h1>
+
+<form class="filters" method="get" action="/samples">
+    <div class="form-group">
+        <label class="form-label">Участок</label>
+        <select name="site_id" class="form-control" onchange="this.form.submit()">
+            <option value="">Все участки</option>
+            {% for site in sites %}
+            <option value="{{ site.id }}" {% if filters.site_id == site.id %}selected{% endif %}>
+                {{ site.name }}
+            </option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label class="form-label">Тип пробы</label>
+        <select name="sample_type" class="form-control" onchange="this.form.submit()">
+            <option value="">Все типы</option>
+            <option value="water" {% if filters.sample_type == 'water' %}selected{% endif %}>Вода</option>
+            <option value="oil" {% if filters.sample_type == 'oil' %}selected{% endif %}>Нефть</option>
+            <option value="gas" {% if filters.sample_type == 'gas' %}selected{% endif %}>Газ</option>
+            <option value="not_sampled_gas" {% if filters.sample_type == 'not_sampled_gas' %}selected{% endif %}>Не отобрана</option>
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label class="form-label">Состояние скв.</label>
+        <select name="well_status" class="form-control" onchange="this.form.submit()">
+            <option value="">Все</option>
+            <option value="working" {% if filters.well_status == 'working' %}selected{% endif %}>Работает</option>
+            <option value="repair" {% if filters.well_status == 'repair' %}selected{% endif %}>Ремонт</option>
+            <option value="not_working" {% if filters.well_status == 'not_working' %}selected{% endif %}>Не работает</option>
+            <option value="krs" {% if filters.well_status == 'krs' %}selected{% endif %}>КРС</option>
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label class="form-label">С даты</label>
+        <input type="date" name="date_from" class="form-control"
+               value="{{ filters.date_from or '' }}" onchange="this.form.submit()">
+    </div>
+
+    <div class="form-group">
+        <label class="form-label">По дату</label>
+        <input type="date" name="date_to" class="form-control"
+               value="{{ filters.date_to or '' }}" onchange="this.form.submit()">
+    </div>
+
+    <div class="form-group" style="display: flex; align-items: flex-end;">
+        <a href="/samples" class="btn btn-secondary">Сбросить</a>
+    </div>
+</form>
+
+<div class="card">
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Дата/время</th>
+                    <th>Оператор</th>
+                    <th>Участок</th>
+                    <th>Скважина</th>
+                    <th>Состояние</th>
+                    <th>Начало</th>
+                    <th>Конец</th>
+                    <th>Объём</th>
+                    <th>Тип пробы</th>
+                    <th>GPS</th>
+                    <th>Примечание</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for event in events %}
+                <tr>
+                    <td>{{ event.created_at|datetime }}</td>
+                    <td>{{ event.operator.display_name if event.operator else '—' }}</td>
+                    <td>
+                        <a href="/sites/{{ event.site_id }}">
+                            {{ event.site.name if event.site else '—' }}
+                        </a>
+                    </td>
+                    <td>{{ event.well.name if event.well else '—' }}</td>
+                    <td>
+                        <span class="badge {% if event.well_status.value == 'working' %}badge-success{% elif event.well_status.value == 'repair' %}badge-warning{% else %}badge-danger{% endif %}">
+                            {% if event.well_status.value == 'working' %}Работает
+                            {% elif event.well_status.value == 'repair' %}Ремонт
+                            {% elif event.well_status.value == 'not_working' %}Не работает
+                            {% else %}КРС{% endif %}
+                        </span>
+                    </td>
+                    <td>{{ event.sampling_start|datetime if event.sampling_start else '—' }}</td>
+                    <td>{{ event.sampling_end|datetime if event.sampling_end else '—' }}</td>
+                    <td>{{ event.volume_liters }} л</td>
+                    <td>
+                        {% if event.sample_type.value == 'water' %}Вода
+                        {% elif event.sample_type.value == 'oil' %}Нефть
+                        {% elif event.sample_type.value == 'gas' %}Газ
+                        {% elif event.sample_type.value == 'not_sampled_gas' %}Не отобрана
+                        {% else %}Другое{% endif %}
+                    </td>
+                    <td>
+                        {% if event.lat and event.lon %}
+                        <span title="{{ event.lat }}, {{ event.lon }}">
+                            <span class="badge badge-success">{{ event.gps_status.value }}</span>
+                        </span>
+                        {% else %}
+                        <span class="badge badge-secondary">{{ event.gps_status.value }}</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ event.sample_note or '—' }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="11" class="empty-state">
+                        <p>Пробы не найдены</p>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if events %}
+    <div style="margin-top: 1rem; display: flex; justify-content: center; gap: 0.5rem;">
+        {% if page > 1 %}
+        <a href="?page={{ page - 1 }}&site_id={{ filters.site_id or '' }}&sample_type={{ filters.sample_type or '' }}&well_status={{ filters.well_status or '' }}&date_from={{ filters.date_from or '' }}&date_to={{ filters.date_to or '' }}"
+           class="btn btn-secondary btn-sm">&larr; Назад</a>
+        {% endif %}
+        <span class="btn btn-sm" style="background: var(--bg);">Страница {{ page }}</span>
+        {% if events|length == 50 %}
+        <a href="?page={{ page + 1 }}&site_id={{ filters.site_id or '' }}&sample_type={{ filters.sample_type or '' }}&well_status={{ filters.well_status or '' }}&date_from={{ filters.date_from or '' }}&date_to={{ filters.date_to or '' }}"
+           class="btn btn-secondary btn-sm">Далее &rarr;</a>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

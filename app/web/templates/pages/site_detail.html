@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+
+{% block title %}{{ site.name }} - Tracer Dashboard{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 1.5rem;">
+    <a href="/sites" style="color: var(--text-muted); text-decoration: none;">&larr; Все участки</a>
+</div>
+
+<h1 style="margin-bottom: 0.5rem;">{{ site.name }}</h1>
+<p style="color: var(--text-muted); margin-bottom: 1.5rem;">
+    Нагнетательная скважина: {{ site.inj_well_name }}
+</p>
+
+<div class="grid grid-2">
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">Скважины участка</h2>
+        </div>
+        {% if site.wells %}
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Название</th>
+                        <th>Тип</th>
+                        <th>Координаты</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for well in site.wells %}
+                    <tr>
+                        <td><strong>{{ well.name }}</strong></td>
+                        <td>
+                            <span class="badge {% if well.well_type.value == 'injection' %}badge-info{% elif well.well_type.value == 'production' %}badge-success{% else %}badge-danger{% endif %}">
+                                {% if well.well_type.value == 'injection' %}Нагн.
+                                {% elif well.well_type.value == 'production' %}Доб.
+                                {% else %}Грифон{% endif %}
+                            </span>
+                        </td>
+                        <td>{{ (well.lat, well.lon)|coords }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <p>Скважины не добавлены</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">Последние пробы</h2>
+            <a href="/samples?site_id={{ site.id }}" class="btn btn-sm btn-secondary">Все пробы</a>
+        </div>
+        {% if recent_events %}
+        <div class="timeline">
+            {% for event in recent_events %}
+            <div class="timeline-item">
+                <div class="timeline-time">{{ event.created_at|datetime }}</div>
+                <div class="timeline-content">
+                    <strong>{{ event.well.name if event.well else '?' }}</strong>
+                    <span style="color: var(--text-muted);">
+                        ({{ event.operator.display_name if event.operator else '?' }})
+                    </span>
+                    <br>
+                    <span class="badge {% if event.well_status.value == 'working' %}badge-success{% elif event.well_status.value == 'repair' %}badge-warning{% else %}badge-danger{% endif %}">
+                        {% if event.well_status.value == 'working' %}Работает
+                        {% elif event.well_status.value == 'repair' %}Ремонт
+                        {% elif event.well_status.value == 'not_working' %}Не работает
+                        {% else %}КРС{% endif %}
+                    </span>
+                    <span class="badge badge-info">{{ event.volume_liters }} л</span>
+                    {% if event.sample_type.value == 'water' %}
+                    <span class="badge badge-secondary">Вода</span>
+                    {% elif event.sample_type.value == 'oil' %}
+                    <span class="badge badge-secondary">Нефть</span>
+                    {% elif event.sample_type.value == 'gas' %}
+                    <span class="badge badge-secondary">Газ</span>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <p>Пробы не отобраны</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

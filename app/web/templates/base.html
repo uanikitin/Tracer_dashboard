@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Tracer Dashboard{% endblock %}</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    {% block head %}{% endblock %}
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">
+            <a href="/">Tracer Dashboard</a>
+        </div>
+        <ul class="nav-links">
+            <li><a href="/" {% if request.url.path == '/' %}class="active"{% endif %}>Главная</a></li>
+            <li><a href="/map" {% if request.url.path == '/map' %}class="active"{% endif %}>Карта</a></li>
+            <li><a href="/sites" {% if '/sites' in request.url.path %}class="active"{% endif %}>Участки</a></li>
+            <li><a href="/samples" {% if request.url.path == '/samples' %}class="active"{% endif %}>Пробы</a></li>
+        </ul>
+    </nav>
+
+    <main class="container">
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer class="footer">
+        <p>Tracer Dashboard &copy; 2024</p>
+    </footer>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

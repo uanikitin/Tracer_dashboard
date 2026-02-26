@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -m py_compile:*)",
+      "Bash(docker-compose up:*)",
+      "Bash(docker compose up:*)",
+      "Bash(curl:*)",
+      "Bash(pkill:*)",
+      "Bash(source .venv/bin/activate)",
+      "Bash(uvicorn:*)",
+      "Bash(brew install:*)",
+      "Bash(.venv/bin/python:*)",
+      "Bash(open:*)",
+      "Bash(git:*)"
+    ]
+  }
+}

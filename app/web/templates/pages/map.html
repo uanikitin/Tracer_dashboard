@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+
+{% block title %}Карта - Tracer Dashboard{% endblock %}
+
+{% block content %}
+<h1 style="margin-bottom: 1.5rem;">Карта скважин</h1>
+
+<div class="card">
+    <div id="map"></div>
+    <div class="map-legend">
+        <h4>Легенда</h4>
+        <div class="legend-item">
+            <span class="legend-color" style="background: #3b82f6;"></span>
+            <span>Нагнетательная</span>
+        </div>
+        <div class="legend-item">
+            <span class="legend-color" style="background: #22c55e;"></span>
+            <span>Добывающая</span>
+        </div>
+        <div class="legend-item">
+            <span class="legend-color" style="background: #ef4444;"></span>
+            <span>Грифон</span>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h2 class="card-title">Все скважины</h2>
+    </div>
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Участок</th>
+                    <th>Скважина</th>
+                    <th>Тип</th>
+                    <th>Координаты</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for well in all_wells %}
+                <tr>
+                    <td>{{ well.site.name if well.site else '—' }}</td>
+                    <td>{{ well.name }}</td>
+                    <td>
+                        <span class="badge {% if well.well_type.value == 'injection' %}badge-info{% elif well.well_type.value == 'production' %}badge-success{% else %}badge-danger{% endif %}">
+                            {% if well.well_type.value == 'injection' %}Нагн.
+                            {% elif well.well_type.value == 'production' %}Доб.
+                            {% else %}Грифон{% endif %}
+                        </span>
+                    </td>
+                    <td>{{ (well.lat, well.lon)|coords }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="4" class="empty-state">Скважины не найдены</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Initialize map
+    const wells = {{ wells|tojson if wells else '[]'|safe }};
+
+    // Default center (Russia)
+    let center = [55.7558, 37.6173];
+    let zoom = 5;
+
+    if (wells.length > 0) {
+        // Calculate center from wells
+        const lats = wells.filter(w => w.lat).map(w => w.lat);
+        const lons = wells.filter(w => w.lon).map(w => w.lon);
+        if (lats.length > 0) {
+            center = [
+                lats.reduce((a, b) => a + b, 0) / lats.length,
+                lons.reduce((a, b) => a + b, 0) / lons.length
+            ];
+            zoom = 10;
+        }
+    }
+
+    const map = L.map('map').setView(center, zoom);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    // Color by well type
+    const colors = {
+        'injection': '#3b82f6',
+        'production': '#22c55e',
+        'gryphon': '#ef4444'
+    };
+
+    const typeLabels = {
+        'injection': 'Нагнетательная',
+        'production': 'Добывающая',
+        'gryphon': 'Грифон'
+    };
+
+    // Add markers
+    wells.forEach(well => {
+        if (well.lat && well.lon) {
+            const color = colors[well.well_type] || '#64748b';
+            const marker = L.circleMarker([well.lat, well.lon], {
+                radius: 8,
+                fillColor: color,
+                color: '#fff',
+                weight: 2,
+                opacity: 1,
+                fillOpacity: 0.8
+            });
+
+            const siteName = well.site ? well.site.name : '—';
+            marker.bindPopup(`
+                <strong>${well.name}</strong><br>
+                Участок: ${siteName}<br>
+                Тип: ${typeLabels[well.well_type] || well.well_type}<br>
+                Координаты: ${well.lat.toFixed(6)}, ${well.lon.toFixed(6)}
+            `);
+
+            marker.addTo(map);
+        }
+    });
+
+    // Fit bounds if we have markers
+    if (wells.filter(w => w.lat && w.lon).length > 0) {
+        const bounds = wells
+            .filter(w => w.lat && w.lon)
+            .map(w => [w.lat, w.lon]);
+        if (bounds.length > 1) {
+            map.fitBounds(bounds, { padding: [50, 50] });
+        }
+    }
+</script>
+{% endblock %}

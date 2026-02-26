@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Отбор пробы</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <style>
+        body {
+            background: var(--tg-theme-bg-color, #fff);
+            color: var(--tg-theme-text-color, #000);
+        }
+        .webapp-container {
+            padding: 1rem;
+            padding-bottom: 100px;
+        }
+        .option-btn {
+            width: 100%;
+            padding: 1rem;
+            margin-bottom: 0.75rem;
+            border: 2px solid var(--border);
+            border-radius: 0.5rem;
+            background: var(--card-bg);
+            text-align: left;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .option-btn:hover {
+            border-color: var(--primary);
+        }
+        .option-btn.selected {
+            border-color: var(--primary);
+            background: rgba(37, 99, 235, 0.1);
+        }
+        .option-btn-title {
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+        }
+        .option-btn-desc {
+            font-size: 0.875rem;
+            color: var(--text-muted);
+        }
+        .step-indicator {
+            text-align: center;
+            margin-bottom: 1.5rem;
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+        .input-with-btn {
+            display: flex;
+            gap: 0.5rem;
+        }
+        .input-with-btn input {
+            flex: 1;
+        }
+        .preview-card {
+            background: var(--bg);
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+        .preview-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid var(--border);
+        }
+        .preview-row:last-child {
+            border-bottom: none;
+        }
+        .preview-label {
+            color: var(--text-muted);
+        }
+        .preview-value {
+            font-weight: 500;
+        }
+        .error-msg {
+            background: #fee2e2;
+            color: #991b1b;
+            padding: 0.75rem;
+            border-radius: 0.375rem;
+            margin-bottom: 1rem;
+        }
+        .success-msg {
+            background: #dcfce7;
+            color: #166534;
+            padding: 0.75rem;
+            border-radius: 0.375rem;
+            text-align: center;
+        }
+        .loading {
+            text-align: center;
+            padding: 2rem;
+        }
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid var(--border);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="webapp-container">
+        <!-- Step 1: Select Site -->
+        <div id="step-site" class="webapp-step active">
+            <div class="step-indicator">Шаг 1 из 7</div>
+            <h2 class="webapp-title">Выберите участок</h2>
+
+            <div id="sites-list">
+                {% for site in sites %}
+                <button class="option-btn" onclick="selectSite({{ site.id }}, '{{ site.name }}')">
+                    <div class="option-btn-title">{{ site.name }}</div>
+                    <div class="option-btn-desc">Нагн.: {{ site.inj_well_name }}</div>
+                </button>
+                {% else %}
+                <p style="color: var(--text-muted);">Участки не найдены</p>
+                {% endfor %}
+            </div>
+
+            <div style="margin-top: 1.5rem;">
+                <button class="btn btn-secondary webapp-btn" onclick="showNewSiteForm()">
+                    + Создать новый участок
+                </button>
+            </div>
+
+            <div id="new-site-form" style="display: none; margin-top: 1rem;">
+                <div class="form-group">
+                    <label class="form-label">Номер нагнетательной скважины</label>
+                    <div class="input-with-btn">
+                        <input type="text" id="new-site-inj" class="form-control" placeholder="2335">
+                        <button class="btn btn-primary" onclick="createSite()">Создать</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 2: Select Well -->
+        <div id="step-well" class="webapp-step">
+            <div class="step-indicator">Шаг 2 из 7</div>
+            <h2 class="webapp-title">Выберите скважину</h2>
+            <p class="webapp-subtitle">Участок: <strong id="selected-site-name"></strong></p>
+
+            <div id="wells-list"></div>
+
+            <div style="margin-top: 1.5rem;">
+                <button class="btn btn-secondary webapp-btn" onclick="showNewWellForm()">
+                    + Создать новую скважину
+                </button>
+            </div>
+
+            <div id="new-well-form" style="display: none; margin-top: 1rem;">
+                <div class="form-group">
+                    <label class="form-label">Тип скважины</label>
+                    <select id="new-well-type" class="form-control">
+                        <option value="production">Добывающая</option>
+                        <option value="gryphon">Грифон</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Название/номер</label>
+                    <div class="input-with-btn">
+                        <input type="text" id="new-well-name" class="form-control" placeholder="1234">
+                        <button class="btn btn-primary" onclick="createWell()">Создать</button>
+                    </div>
+                </div>
+            </div>
+
+            <button class="btn btn-secondary" onclick="goToStep('step-site')" style="margin-top: 1rem;">
+                &larr; Назад
+            </button>
+        </div>
+
+        <!-- Step 3: Well Status -->
+        <div id="step-status" class="webapp-step">
+            <div class="step-indicator">Шаг 3 из 7</div>
+            <h2 class="webapp-title">Состояние скважины</h2>
+
+            <button class="option-btn" onclick="selectWellStatus('working')">
+                <div class="option-btn-title">Работает</div>
+            </button>
+            <button class="option-btn" onclick="selectWellStatus('repair')">
+                <div class="option-btn-title">Ремонт</div>
+            </button>
+            <button class="option-btn" onclick="selectWellStatus('not_working')">
+                <div class="option-btn-title">Не работает</div>
+            </button>
+            <button class="option-btn" onclick="selectWellStatus('krs')">
+                <div class="option-btn-title">КРС</div>
+            </button>
+
+            <button class="btn btn-secondary" onclick="goToStep('step-well')" style="margin-top: 1rem;">
+                &larr; Назад
+            </button>
+        </div>
+
+        <!-- Step 4: GPS -->
+        <div id="step-gps" class="webapp-step">
+            <div class="step-indicator">Шаг 4 из 7</div>
+            <h2 class="webapp-title">GPS координаты</h2>
+
+            <button class="btn btn-primary webapp-btn" onclick="requestGPS()">
+                Получить координаты
+            </button>
+
+            <div id="gps-status" style="margin: 1rem 0; text-align: center;"></div>
+
+            <div class="form-group">
+                <label class="form-label">Или введите вручную:</label>
+                <input type="text" id="gps-manual" class="form-control" placeholder="55.7558, 37.6173">
+            </div>
+
+            <div class="webapp-btn-group">
+                <button class="btn btn-secondary" onclick="goToStep('step-status')">
+                    &larr; Назад
+                </button>
+                <button class="btn btn-primary" onclick="saveGPS()">
+                    Далее &rarr;
+                </button>
+            </div>
+        </div>
+
+        <!-- Step 5: Sample Type -->
+        <div id="step-sample-type" class="webapp-step">
+            <div class="step-indicator">Шаг 5 из 7</div>
+            <h2 class="webapp-title">Тип пробы</h2>
+
+            <button class="option-btn" onclick="selectSampleType('water')">
+                <div class="option-btn-title">Вода</div>
+            </button>
+            <button class="option-btn" onclick="selectSampleType('oil')">
+                <div class="option-btn-title">Нефть</div>
+            </button>
+            <button class="option-btn" onclick="selectSampleType('gas')">
+                <div class="option-btn-title">Газ</div>
+            </button>
+            <button class="option-btn" onclick="selectSampleType('not_sampled_gas')">
+                <div class="option-btn-title">Проба не отобрана</div>
+                <div class="option-btn-desc">Высокий газовый фактор</div>
+            </button>
+
+            <button class="btn btn-secondary" onclick="goToStep('step-gps')" style="margin-top: 1rem;">
+                &larr; Назад
+            </button>
+        </div>
+
+        <!-- Step 6: Volume & Note -->
+        <div id="step-details" class="webapp-step">
+            <div class="step-indicator">Шаг 6 из 7</div>
+            <h2 class="webapp-title">Детали пробы</h2>
+
+            <div class="form-group">
+                <label class="form-label">Объём (литры)</label>
+                <input type="number" id="volume" class="form-control" value="0.7" step="0.1" min="0">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Примечание (опционально)</label>
+                <textarea id="note" class="form-control" rows="3" placeholder="Например: не работает пробоотборник"></textarea>
+            </div>
+
+            <div class="webapp-btn-group">
+                <button class="btn btn-secondary" onclick="goToStep('step-sample-type')">
+                    &larr; Назад
+                </button>
+                <button class="btn btn-primary" onclick="showPreview()">
+                    Далее &rarr;
+                </button>
+            </div>
+        </div>
+
+        <!-- Step 7: Confirm -->
+        <div id="step-confirm" class="webapp-step">
+            <div class="step-indicator">Шаг 7 из 7</div>
+            <h2 class="webapp-title">Подтверждение</h2>
+
+            <div class="preview-card" id="preview-content"></div>
+
+            <div class="webapp-btn-group">
+                <button class="btn btn-secondary" onclick="goToStep('step-details')">
+                    &larr; Назад
+                </button>
+                <button class="btn btn-primary" onclick="submitSampling()">
+                    Сохранить
+                </button>
+            </div>
+        </div>
+
+        <!-- Loading -->
+        <div id="step-loading" class="webapp-step">
+            <div class="loading">
+                <div class="spinner"></div>
+                <p>Сохранение...</p>
+            </div>
+        </div>
+
+        <!-- Success -->
+        <div id="step-success" class="webapp-step">
+            <div class="success-msg">
+                <h2>Событие сохранено!</h2>
+                <p style="margin-top: 0.5rem;">Сообщение отправлено в группу.</p>
+            </div>
+        </div>
+
+        <!-- Error -->
+        <div id="error-container" style="display: none;"></div>
+    </div>
+
+    <script>
+        // Initialize Telegram WebApp
+        const tg = window.Telegram.WebApp;
+        tg.ready();
+        tg.expand();
+
+        // State
+        const state = {
+            site_id: null,
+            site_name: '',
+            well_id: null,
+            well_name: '',
+            well_status: 'working',
+            gps_status: 'skipped_by_user',
+            lat: null,
+            lon: null,
+            sample_type: 'water',
+            volume_liters: 0.7,
+            sample_note: '',
+            sampling_start: null,
+            sampling_end: null
+        };
+
+        // API base URL
+        const API_URL = '/api/v1';
+
+        // Get init data
+        function getInitData() {
+            return tg.initData || '';
+        }
+
+        // Show step
+        function goToStep(stepId) {
+            document.querySelectorAll('.webapp-step').forEach(s => s.classList.remove('active'));
+            document.getElementById(stepId).classList.add('active');
+        }
+
+        // Show error
+        function showError(msg) {
+            const container = document.getElementById('error-container');
+            container.innerHTML = `<div class="error-msg">${msg}</div>`;
+            container.style.display = 'block';
+            setTimeout(() => { container.style.display = 'none'; }, 5000);
+        }
+
+        // Select site
+        function selectSite(id, name) {
+            state.site_id = id;
+            state.site_name = name;
+            document.getElementById('selected-site-name').textContent = name;
+            loadWells(id);
+            goToStep('step-well');
+        }
+
+        // Load wells for site
+        async function loadWells(siteId) {
+            try {
+                const resp = await fetch(`${API_URL}/wells?site_id=${siteId}`);
+                const wells = await resp.json();
+
+                const container = document.getElementById('wells-list');
+                if (wells.length === 0) {
+                    container.innerHTML = '<p style="color: var(--text-muted);">Скважины не найдены</p>';
+                } else {
+                    container.innerHTML = wells.map(w => `
+                        <button class="option-btn" onclick="selectWell(${w.id}, '${w.name}')">
+                            <div class="option-btn-title">${w.name}</div>
+                            <div class="option-btn-desc">${w.well_type === 'production' ? 'Добывающая' : w.well_type === 'gryphon' ? 'Грифон' : 'Нагнетательная'}</div>
+                        </button>
+                    `).join('');
+                }
+            } catch (e) {
+                showError('Ошибка загрузки скважин');
+            }
+        }
+
+        // Show new site form
+        function showNewSiteForm() {
+            document.getElementById('new-site-form').style.display = 'block';
+        }
+
+        // Create site
+        async function createSite() {
+            const injWell = document.getElementById('new-site-inj').value.trim();
+            if (!injWell) {
+                showError('Введите номер скважины');
+                return;
+            }
+
+            try {
+                const resp = await fetch(`${API_URL}/sites/webapp`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Telegram-Init-Data': getInitData()
+                    },
+                    body: JSON.stringify({
+                        name: `inj_${injWell}`,
+                        inj_well_name: injWell
+                    })
+                });
+
+                if (!resp.ok) {
+                    const err = await resp.json();
+                    throw new Error(err.detail || 'Ошибка создания');
+                }
+
+                const site = await resp.json();
+                selectSite(site.id, site.name);
+            } catch (e) {
+                showError(e.message);
+            }
+        }
+
+        // Select well
+        function selectWell(id, name) {
+            state.well_id = id;
+            state.well_name = name;
+            goToStep('step-status');
+        }
+
+        // Show new well form
+        function showNewWellForm() {
+            document.getElementById('new-well-form').style.display = 'block';
+        }
+
+        // Create well
+        async function createWell() {
+            const name = document.getElementById('new-well-name').value.trim();
+            const type = document.getElementById('new-well-type').value;
+
+            if (!name) {
+                showError('Введите название скважины');
+                return;
+            }
+
+            try {
+                const resp = await fetch(`${API_URL}/wells/webapp`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Telegram-Init-Data': getInitData()
+                    },
+                    body: JSON.stringify({
+                        site_id: state.site_id,
+                        name: name,
+                        well_type: type
+                    })
+                });
+
+                if (!resp.ok) {
+                    const err = await resp.json();
+                    throw new Error(err.detail || 'Ошибка создания');
+                }
+
+                const well = await resp.json();
+                selectWell(well.id, well.name);
+            } catch (e) {
+                showError(e.message);
+            }
+        }
+
+        // Select well status
+        function selectWellStatus(status) {
+            state.well_status = status;
+            if (status === 'working') {
+                state.sampling_start = new Date().toISOString();
+            }
+            goToStep('step-gps');
+        }
+
+        // Request GPS
+        function requestGPS() {
+            const statusEl = document.getElementById('gps-status');
+            statusEl.innerHTML = '<div class="spinner"></div><p>Получение координат...</p>';
+
+            if (!navigator.geolocation) {
+                statusEl.innerHTML = '<p style="color: var(--danger);">Геолокация не поддерживается</p>';
+                state.gps_status = 'timeout';
+                return;
+            }
+
+            const timeout = setTimeout(() => {
+                statusEl.innerHTML = '<p style="color: var(--warning);">Таймаут получения координат</p>';
+                state.gps_status = 'timeout';
+            }, 15000);
+
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    clearTimeout(timeout);
+                    state.lat = pos.coords.latitude;
+                    state.lon = pos.coords.longitude;
+                    state.gps_status = 'received';
+                    statusEl.innerHTML = `<p style="color: var(--success);">Координаты: ${state.lat.toFixed(6)}, ${state.lon.toFixed(6)}</p>`;
+                    document.getElementById('gps-manual').value = `${state.lat}, ${state.lon}`;
+                },
+                (err) => {
+                    clearTimeout(timeout);
+                    statusEl.innerHTML = `<p style="color: var(--danger);">Ошибка: ${err.message}</p>`;
+                    state.gps_status = 'timeout';
+                },
+                { enableHighAccuracy: true, timeout: 15000 }
+            );
+        }
+
+        // Save GPS and continue
+        function saveGPS() {
+            const manual = document.getElementById('gps-manual').value.trim();
+            if (manual) {
+                const parts = manual.split(',').map(p => parseFloat(p.trim()));
+                if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+                    state.lat = parts[0];
+                    state.lon = parts[1];
+                    state.gps_status = 'received';
+                }
+            }
+            goToStep('step-sample-type');
+        }
+
+        // Select sample type
+        function selectSampleType(type) {
+            state.sample_type = type;
+            if (type === 'not_sampled_gas') {
+                state.volume_liters = 0;
+                document.getElementById('volume').value = '0';
+            }
+            if (state.well_status === 'working') {
+                state.sampling_end = new Date().toISOString();
+            }
+            goToStep('step-details');
+        }
+
+        // Show preview
+        function showPreview() {
+            state.volume_liters = parseFloat(document.getElementById('volume').value) || 0;
+            state.sample_note = document.getElementById('note').value.trim() || null;
+
+            const statusLabels = {
+                working: 'Работает',
+                repair: 'Ремонт',
+                not_working: 'Не работает',
+                krs: 'КРС'
+            };
+            const typeLabels = {
+                water: 'Вода',
+                oil: 'Нефть',
+                gas: 'Газ',
+                not_sampled_gas: 'Не отобрана (газ)',
+                other: 'Другое'
+            };
+
+            const coords = state.lat && state.lon
+                ? `${state.lat.toFixed(6)}, ${state.lon.toFixed(6)}`
+                : 'Нет';
+
+            document.getElementById('preview-content').innerHTML = `
+                <div class="preview-row">
+                    <span class="preview-label">Участок:</span>
+                    <span class="preview-value">${state.site_name}</span>
+                </div>
+                <div class="preview-row">
+                    <span class="preview-label">Скважина:</span>
+                    <span class="preview-value">${state.well_name}</span>
+                </div>
+                <div class="preview-row">
+                    <span class="preview-label">Состояние:</span>
+                    <span class="preview-value">${statusLabels[state.well_status]}</span>
+                </div>
+                <div class="preview-row">
+                    <span class="preview-label">Тип пробы:</span>
+                    <span class="preview-value">${typeLabels[state.sample_type]}</span>
+                </div>
+                <div class="preview-row">
+                    <span class="preview-label">Объём:</span>
+                    <span class="preview-value">${state.volume_liters} л</span>
+                </div>
+                <div class="preview-row">
+                    <span class="preview-label">Координаты:</span>
+                    <span class="preview-value">${coords}</span>
+                </div>
+                <div class="preview-row">
+                    <span class="preview-label">Примечание:</span>
+                    <span class="preview-value">${state.sample_note || '—'}</span>
+                </div>
+            `;
+
+            goToStep('step-confirm');
+        }
+
+        // Submit
+        async function submitSampling() {
+            goToStep('step-loading');
+
+            try {
+                const resp = await fetch(`${API_URL}/sampling/webapp`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Telegram-Init-Data': getInitData()
+                    },
+                    body: JSON.stringify({
+                        site_id: state.site_id,
+                        well_id: state.well_id,
+                        well_status: state.well_status,
+                        sampling_start: state.sampling_start,
+                        sampling_end: state.sampling_end,
+                        sample_type: state.sample_type,
+                        sample_note: state.sample_note,
+                        volume_liters: state.volume_liters,
+                        gps_status: state.gps_status,
+                        lat: state.lat,
+                        lon: state.lon
+                    })
+                });
+
+                if (!resp.ok) {
+                    const err = await resp.json();
+                    throw new Error(err.detail || 'Ошибка сохранения');
+                }
+
+                goToStep('step-success');
+
+                // Close after 2 seconds
+                setTimeout(() => {
+                    tg.close();
+                }, 2000);
+
+            } catch (e) {
+                showError(e.message);
+                goToStep('step-confirm');
+            }
+        }
+    </script>
+</body>
+</html>

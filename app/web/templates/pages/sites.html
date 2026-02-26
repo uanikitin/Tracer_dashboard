@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+
+{% block title %}Участки - Tracer Dashboard{% endblock %}
+
+{% block content %}
+<h1 style="margin-bottom: 1.5rem;">Участки</h1>
+
+{% if sites %}
+<div class="grid grid-3">
+    {% for site in sites %}
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">{{ site.name }}</h3>
+        </div>
+        <p style="margin-bottom: 0.5rem;">
+            <strong>Нагнетательная:</strong> {{ site.inj_well_name }}
+        </p>
+        <p style="margin-bottom: 1rem; color: var(--text-muted);">
+            Скважин: {{ site.wells|length if site.wells else 0 }}
+        </p>
+
+        {% if site.wells %}
+        <div style="margin-bottom: 1rem;">
+            <small style="color: var(--text-muted);">Скважины:</small>
+            <div style="margin-top: 0.5rem;">
+                {% for well in site.wells[:5] %}
+                <span class="badge {% if well.well_type.value == 'injection' %}badge-info{% elif well.well_type.value == 'production' %}badge-success{% else %}badge-danger{% endif %}">
+                    {{ well.name }}
+                </span>
+                {% endfor %}
+                {% if site.wells|length > 5 %}
+                <span class="badge badge-secondary">+{{ site.wells|length - 5 }}</span>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+        <a href="/sites/{{ site.id }}" class="btn btn-primary btn-sm">Подробнее</a>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="card">
+    <div class="empty-state">
+        <div class="empty-state-icon">📍</div>
+        <p>Участки пока не созданы</p>
+        <p style="margin-top: 0.5rem; font-size: 0.875rem;">
+            Создайте первый участок через Telegram-бота
+        </p>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
