@@ -35,7 +35,7 @@ async def cmd_start(message: Message) -> None:
     # Build keyboard with Mini App button
     keyboard = []
 
-    if settings.webapp_url:
+    if settings.webapp_url and settings.webapp_url.startswith("https://"):
         keyboard.append([
             InlineKeyboardButton(
                 text="📝 Отбор пробы",
@@ -43,9 +43,10 @@ async def cmd_start(message: Message) -> None:
             )
         ])
 
-    keyboard.append([
-        InlineKeyboardButton(text="📊 Дашборд", url=f"{settings.app_url}/"),
-    ])
+    if settings.app_url.startswith("https://"):
+        keyboard.append([
+            InlineKeyboardButton(text="📊 Дашборд", url=f"{settings.app_url}/"),
+        ])
 
     reply_markup = InlineKeyboardMarkup(inline_keyboard=keyboard)
 

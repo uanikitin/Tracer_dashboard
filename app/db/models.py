@@ -60,6 +60,39 @@ class SampleType(str, PyEnum):
     OTHER = "other"                  # Другое
 
 
+class Deposit(Base):
+    """
+    Месторождение (deposit/field).
+    Верхний уровень иерархии: Месторождение → Участки → Скважины → Пробы.
+    Каждый Telegram-бот привязан к одному месторождению.
+    """
+    __tablename__ = "deposits"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    bot_token: Mapped[Optional[str]] = mapped_column(String(255), nullable=True, unique=True)
+    group_chat_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False
+    )
+
+    # Relationships
+    sites: Mapped[list["Site"]] = relationship(
+        back_populates="deposit",
+        lazy="selectin",
+        cascade="all, delete-orphan"
+    )
+
+
 class User(Base):
     """Telegram user."""
     __tablename__ = "users"
@@ -70,7 +103,7 @@ class User(Base):
     first_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     last_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     role: Mapped[UserRole] = mapped_column(
-        Enum(UserRole, name="user_role"),
+        Enum(UserRole, name="user_role", values_callable=lambda e: [x.value for x in e]),
         default=UserRole.USER,
         nullable=False
     )
@@ -106,11 +139,13 @@ class Site(Base):
     """
     Участок (site/sector).
     Создаётся по названию нагнетательной скважины.
+    Привязан к месторождению.
     """
     __tablename__ = "sites"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    name: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
+    deposit_id: Mapped[int] = mapped_column(ForeignKey("deposits.id"), nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     inj_well_name: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
@@ -125,7 +160,13 @@ class Site(Base):
         nullable=False
     )
 
+    # Unique constraint: site name unique within deposit
+    __table_args__ = (
+        UniqueConstraint("deposit_id", "name", name="uq_site_deposit_name"),
+    )
+
     # Relationships
+    deposit: Mapped["Deposit"] = relationship(back_populates="sites")
     wells: Mapped[list["Well"]] = relationship(
         back_populates="site",
         lazy="selectin",
@@ -148,7 +189,7 @@ class Well(Base):
     site_id: Mapped[int] = mapped_column(ForeignKey("sites.id"), nullable=False, index=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     well_type: Mapped[WellType] = mapped_column(
-        Enum(WellType, name="well_type"),
+        Enum(WellType, name="well_type", values_callable=lambda e: [x.value for x in e]),
         nullable=False
     )
     lat: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
@@ -198,7 +239,7 @@ class SamplingEvent(Base):
 
     # Well status at the time of sampling
     well_status: Mapped[WellStatus] = mapped_column(
-        Enum(WellStatus, name="well_status"),
+        Enum(WellStatus, name="well_status", values_callable=lambda e: [x.value for x in e]),
         nullable=False
     )
 
@@ -214,7 +255,7 @@ class SamplingEvent(Base):
 
     # Sample info
     sample_type: Mapped[SampleType] = mapped_column(
-        Enum(SampleType, name="sample_type"),
+        Enum(SampleType, name="sample_type", values_callable=lambda e: [x.value for x in e]),
         nullable=False
     )
     sample_note: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
@@ -222,7 +263,7 @@ class SamplingEvent(Base):
 
     # GPS info
     gps_status: Mapped[GPSStatus] = mapped_column(
-        Enum(GPSStatus, name="gps_status"),
+        Enum(GPSStatus, name="gps_status", values_callable=lambda e: [x.value for x in e]),
         nullable=False
     )
     lat: Mapped[Optional[float]] = mapped_column(Float, nullable=True)

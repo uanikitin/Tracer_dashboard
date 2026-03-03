@@ -3,7 +3,7 @@ import asyncio
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from aiogram.types import Update
+from aiogram.types import BotCommand, Update
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -35,6 +35,15 @@ async def lifespan(app: FastAPI):
             # Start polling in background
             asyncio.create_task(dp.start_polling(bot, skip_updates=True))
             logger.info("Bot polling started")
+
+        # Set bot menu commands
+        await bot.set_my_commands([
+            BotCommand(command="start", description="Начало работы"),
+            BotCommand(command="sample", description="Отбор пробы"),
+            BotCommand(command="sites", description="Список участков"),
+            BotCommand(command="wells", description="Список скважин"),
+            BotCommand(command="help", description="Справка"),
+        ])
     else:
         logger.warning("Bot token is placeholder — Telegram bot disabled")
 

@@ -18,13 +18,6 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # Create enum types
-    op.execute("CREATE TYPE user_role AS ENUM ('admin', 'user')")
-    op.execute("CREATE TYPE well_type AS ENUM ('injection', 'production', 'gryphon')")
-    op.execute("CREATE TYPE well_status AS ENUM ('working', 'repair', 'not_working', 'krs')")
-    op.execute("CREATE TYPE gps_status AS ENUM ('received', 'timeout', 'skipped_by_user')")
-    op.execute("CREATE TYPE sample_type AS ENUM ('water', 'oil', 'gas', 'not_sampled_gas', 'other')")
-
     # Create users table
     op.create_table(
         'users',
@@ -41,19 +34,38 @@ def upgrade() -> None:
     )
     op.create_index('ix_users_telegram_id', 'users', ['telegram_id'], unique=True)
 
+    # Create deposits table
+    op.create_table(
+        'deposits',
+        sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('name', sa.String(255), nullable=False),
+        sa.Column('description', sa.Text(), nullable=True),
+        sa.Column('bot_token', sa.String(255), nullable=True),
+        sa.Column('group_chat_id', sa.BigInteger(), nullable=True),
+        sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+        sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+        sa.PrimaryKeyConstraint('id'),
+        sa.UniqueConstraint('name'),
+        sa.UniqueConstraint('bot_token')
+    )
+    op.create_index('ix_deposits_name', 'deposits', ['name'], unique=True)
+
     # Create sites table
     op.create_table(
         'sites',
         sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('deposit_id', sa.Integer(), nullable=False),
         sa.Column('name', sa.String(255), nullable=False),
         sa.Column('inj_well_name', sa.String(255), nullable=False),
         sa.Column('description', sa.Text(), nullable=True),
         sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
         sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+        sa.ForeignKeyConstraint(['deposit_id'], ['deposits.id'], ),
         sa.PrimaryKeyConstraint('id'),
-        sa.UniqueConstraint('name')
+        sa.UniqueConstraint('deposit_id', 'name', name='uq_site_deposit_name')
     )
-    op.create_index('ix_sites_name', 'sites', ['name'], unique=True)
+    op.create_index('ix_sites_name', 'sites', ['name'], unique=False)
+    op.create_index('ix_sites_deposit_id', 'sites', ['deposit_id'], unique=False)
 
     # Create wells table
     op.create_table(
@@ -108,10 +120,11 @@ def downgrade() -> None:
     op.drop_table('sampling_events')
     op.drop_table('wells')
     op.drop_table('sites')
+    op.drop_table('deposits')
     op.drop_table('users')
 
-    op.execute("DROP TYPE sample_type")
-    op.execute("DROP TYPE gps_status")
-    op.execute("DROP TYPE well_status")
-    op.execute("DROP TYPE well_type")
-    op.execute("DROP TYPE user_role")
+    sa.Enum(name='user_role').drop(op.get_bind(), checkfirst=True)
+    sa.Enum(name='well_type').drop(op.get_bind(), checkfirst=True)
+    sa.Enum(name='well_status').drop(op.get_bind(), checkfirst=True)
+    sa.Enum(name='gps_status').drop(op.get_bind(), checkfirst=True)
+    sa.Enum(name='sample_type').drop(op.get_bind(), checkfirst=True)
