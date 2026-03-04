@@ -1,19 +1,21 @@
 # Render Blueprint
 # https://render.com/docs/blueprint-spec
+#
+# Для деплоя: Dashboard → New → Blueprint Instance → connect GitHub repo
+# База данных уже создана на Render, DATABASE_URL задаётся вручную.
 
 services:
   - type: web
     name: tracer-dashboard
-    env: python
+    runtime: python
     plan: free
+    region: frankfurt
     buildCommand: pip install . && alembic upgrade head
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /health
     envVars:
       - key: DATABASE_URL
-        fromDatabase:
-          name: tracer-db
-          property: connectionString
+        sync: false  # задать вручную: postgresql+asyncpg://tracer_user:...@.../tracer
       - key: BOT_TOKEN
         sync: false
       - key: TELEGRAM_GROUP_CHAT_ID
@@ -22,31 +24,9 @@ services:
         generateValue: true
       - key: APP_ENV
         value: production
+      - key: DEBUG
+        value: false
       - key: USE_WEBHOOK
         value: true
-      - key: TELEGRAM_WEBHOOK_URL
-        fromService:
-          type: web
-          name: tracer-dashboard
-          property: host
-        prefix: https://
-        suffix: /api/v1/telegram/webhook
-      - key: APP_URL
-        fromService:
-          type: web
-          name: tracer-dashboard
-          property: host
-        prefix: https://
-      - key: WEBAPP_URL
-        fromService:
-          type: web
-          name: tracer-dashboard
-          property: host
-        prefix: https://
-        suffix: /webapp
-
-databases:
-  - name: tracer-db
-    plan: free
-    databaseName: tracer
-    user: tracer
+      - key: PYTHON_VERSION
+        value: "3.12.3"

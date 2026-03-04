@@ -36,12 +36,14 @@ class SiteService:
         self,
         name: str,
         inj_well_name: str,
+        deposit_id: int | None = None,
         description: str | None = None,
     ) -> Site:
         """Create a new site."""
         site = Site(
             name=name,
             inj_well_name=inj_well_name,
+            deposit_id=deposit_id,
             description=description,
         )
         self.db.add(site)
@@ -94,7 +96,7 @@ class SiteService:
         )
         return list(result.scalars().all())
 
-    async def get_or_create(self, name: str, inj_well_name: str | None = None) -> tuple[Site, bool]:
+    async def get_or_create(self, name: str, inj_well_name: str | None = None, deposit_id: int | None = None) -> tuple[Site, bool]:
         """
         Get existing site or create new one.
         Returns tuple of (site, created).
@@ -106,5 +108,6 @@ class SiteService:
         site = await self.create(
             name=name,
             inj_well_name=inj_well_name or name,
+            deposit_id=deposit_id,
         )
         return site, True

@@ -91,36 +91,35 @@ def verify_telegram_init_data(init_data: str, bot_token: str | None = None) -> T
 
     See: https://core.telegram.org/bots/webapps#validating-data-received-via-the-mini-app
     """
+    from app.core.logging import logger
+
     if bot_token is None:
         bot_token = settings.bot_token
 
+    if not init_data or not init_data.strip():
+        logger.warning("verify_telegram_init_data: empty init_data")
+        return None
+
     try:
         parsed = parse_qs(init_data)
-        data_dict: dict[str, Any] = {}
 
-        for key, value in parsed.items():
-            val = value[0] if value else ""
-            if key == "user":
-                data_dict[key] = json.loads(unquote(val))
-            elif key == "auth_date":
-                data_dict[key] = int(val)
-            else:
-                data_dict[key] = val
-
-        received_hash = data_dict.pop("hash", None)
+        # Get hash from raw parsed values
+        received_hash = parsed.get("hash", [None])[0]
         if not received_hash:
+            logger.warning("verify_telegram_init_data: no hash in init_data")
             return None
 
-        # Build data-check-string
+        # Build data-check-string using raw URL-decoded values (NOT re-serialized)
+        # This is critical: Telegram computes hash on the original values
         data_check_pairs = []
-        for key in sorted(data_dict.keys()):
-            value = data_dict[key]
-            if key == "user":
-                value = json.dumps(value, separators=(",", ":"), ensure_ascii=False)
-            data_check_pairs.append(f"{key}={value}")
+        for key in sorted(parsed.keys()):
+            if key == "hash":
+                continue
+            val = parsed[key][0] if parsed[key] else ""
+            data_check_pairs.append(f"{key}={val}")
         data_check_string = "\n".join(data_check_pairs)
 
-        # Create secret key
+        # Create secret key: HMAC-SHA256("WebAppData", bot_token)
         secret_key = hmac.new(
             b"WebAppData",
             bot_token.encode(),
@@ -135,15 +134,32 @@ def verify_telegram_init_data(init_data: str, bot_token: str | None = None) -> T
         ).hexdigest()
 
         if not hmac.compare_digest(calculated_hash, received_hash):
+            logger.warning("verify_telegram_init_data: hash mismatch")
+            logger.debug(f"  data_check_string: {data_check_string!r}")
+            logger.debug(f"  calculated: {calculated_hash}")
+            logger.debug(f"  received:   {received_hash}")
             return None
+
+        # Parse user data for the response object
+        user_data = None
+        user_str = parsed.get("user", [None])[0]
+        if user_str:
+            user_data = json.loads(user_str)
+
+        auth_date = int(parsed.get("auth_date", ["0"])[0])
 
         # Check auth_date is not too old (allow 24 hours)
-        auth_date = data_dict.get("auth_date", 0)
         if time.time() - auth_date > 86400:
+            logger.warning(f"verify_telegram_init_data: auth_date too old ({auth_date})")
             return None
 
-        data_dict["hash"] = received_hash
-        return TelegramInitData(**data_dict)
+        return TelegramInitData(
+            query_id=parsed.get("query_id", [None])[0],
+            user=user_data,
+            auth_date=auth_date,
+            hash=received_hash,
+        )
 
-    except Exception:
+    except Exception as e:
+        logger.error(f"verify_telegram_init_data error: {e}")
         return None

@@ -1,5 +1,6 @@
 """Sites API endpoints."""
 from fastapi import APIRouter, HTTPException, Query, status
+from sqlalchemy import select
 
 from app.api.deps import CurrentAdmin, CurrentUser, DB, TelegramUser
 from app.api.schemas import (
@@ -8,6 +9,8 @@ from app.api.schemas import (
     SiteUpdate,
     SiteWithWellsResponse,
 )
+from app.core.config import settings
+from app.db.models import Deposit
 from app.services.site_service import SiteService
 
 router = APIRouter()
@@ -41,6 +44,17 @@ async def get_site(site_id: int, db: DB) -> SiteWithWellsResponse:
 @router.post("", response_model=SiteResponse, status_code=status.HTTP_201_CREATED)
 async def create_site(data: SiteCreate, db: DB, user: CurrentAdmin) -> SiteResponse:
     """Create a new site. Admin only."""
+    # Find deposit by current bot token
+    result = await db.execute(
+        select(Deposit).where(Deposit.bot_token == settings.bot_token)
+    )
+    deposit = result.scalar_one_or_none()
+    if not deposit:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Deposit not found for this bot",
+        )
+
     site_service = SiteService(db)
 
     # Check for duplicate name
@@ -54,6 +68,7 @@ async def create_site(data: SiteCreate, db: DB, user: CurrentAdmin) -> SiteRespo
     site = await site_service.create(
         name=data.name,
         inj_well_name=data.inj_well_name,
+        deposit_id=deposit.id,
         description=data.description,
     )
     return SiteResponse.model_validate(site)
@@ -62,6 +77,17 @@ async def create_site(data: SiteCreate, db: DB, user: CurrentAdmin) -> SiteRespo
 @router.post("/webapp", response_model=SiteResponse, status_code=status.HTTP_201_CREATED)
 async def create_site_webapp(data: SiteCreate, db: DB, user: TelegramUser) -> SiteResponse:
     """Create a new site from Telegram WebApp."""
+    # Find deposit by current bot token
+    result = await db.execute(
+        select(Deposit).where(Deposit.bot_token == settings.bot_token)
+    )
+    deposit = result.scalar_one_or_none()
+    if not deposit:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Deposit not found for this bot",
+        )
+
     site_service = SiteService(db)
 
     existing = await site_service.get_by_name(data.name)
@@ -74,6 +100,7 @@ async def create_site_webapp(data: SiteCreate, db: DB, user: TelegramUser) -> Si
     site = await site_service.create(
         name=data.name,
         inj_well_name=data.inj_well_name,
+        deposit_id=deposit.id,
         description=data.description,
     )
     return SiteResponse.model_validate(site)
